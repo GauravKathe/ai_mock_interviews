@@ -95,18 +95,25 @@ export async function getLatestInterviews(
 ): Promise<Interview[] | null> {
   const { userId, limit = 20 } = params;
 
-  const interviews = await db
+  // Firestore does not support range/inequality filters on multiple fields
+  // (e.g., combining `!=` with `orderBy` on another field) without a composite index.
+  // To avoid requiring an index here, query for finalized interviews ordered by
+  // creation date and filter out the current user's interviews in-memory.
+  const fetchLimit = Math.max(limit * 3, limit + 10);
+
+  const snapshot = await db
     .collection("interviews")
-    .orderBy("createdAt", "desc")
     .where("finalized", "==", true)
-    .where("userId", "!=", userId)
-    .limit(limit)
+    .orderBy("createdAt", "desc")
+    .limit(fetchLimit)
     .get();
 
-  return interviews.docs.map((doc) => ({
-    id: doc.id,
-    ...doc.data(),
-  })) as Interview[];
+  const filtered = snapshot.docs
+    .map((doc) => ({ id: doc.id, ...doc.data() } as Interview))
+    .filter((i) => i.userId !== userId)
+    .slice(0, limit);
+
+  return filtered;
 }
 
 export async function getInterviewsByUserId(

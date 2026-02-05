@@ -7,12 +7,23 @@ function initFirebaseAdmin() {
   const apps = getApps();
 
   if (!apps.length) {
+    // Normalize env vars: strip surrounding quotes if present
+    const rawProjectId = process.env.FIREBASE_PROJECT_ID;
+    const rawClientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+    const rawPrivateKey = process.env.FIREBASE_PRIVATE_KEY;
+
+    const projectId = rawProjectId?.replace(/^"|"$/g, "");
+    const clientEmail = rawClientEmail?.replace(/^"|"$/g, "");
+    // Handle private key with literal "\\n" sequences or actual newlines
+    const privateKey = rawPrivateKey
+      ? rawPrivateKey.replace(/\\n/g, "\n").replace(/^"|"$/g, "")
+      : undefined;
+
     initializeApp({
       credential: cert({
-        projectId: process.env.FIREBASE_PROJECT_ID,
-        clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-        // Replace newlines in the private key
-        privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, "\n"),
+        projectId,
+        clientEmail,
+        privateKey,
       }),
     });
   }
